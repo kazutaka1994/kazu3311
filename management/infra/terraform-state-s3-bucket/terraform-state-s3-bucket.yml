@@ -1,0 +1,63 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: S3 Bucket Terraform State File.
+
+Parameters:
+  BucketName:
+    Description: "S3 Bucket Name"
+    Type: String
+    AllowedPattern: "^[a-z0-9][a-z0-9\\-]{0,51}$"
+  
+  NewerNoncurrentVersions:
+    Description: "Number of days to keep the noncurrent versions"
+    Type: Number
+    Default: 3
+  
+  NoncurrentDays:
+    Description: "Number of days to keep the noncurrent versions"
+    Type: Number
+    Default: 1
+  
+
+Resources:
+  S3Bucket:
+    Type: "AWS::S3::Bucket"
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub "${BucketName}-${AWS::AccountId}"
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption: 
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: "AES256"
+            BucketKeyEnabled: false
+      LifecycleConfiguration:
+        Rules:
+          - Id: AbortIncompleteMultipartUpload
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 3
+            Status: "Enabled"
+          - Id: NoncurrentVersionExpiration
+            NoncurrentVersionExpiration:
+              NewerNoncurrentVersions: !Ref NewerNoncurrentVersions
+              NoncurrentDays: !Ref NoncurrentDays
+            Status: Enabled
+
+Outputs:
+  S3BucketName:
+    Value: !Ref S3Bucket
+    Description: "S3 Bucket Name"
+    Export:
+      Name: !Join [":", [!Sub "${BucketName}-${AWS::AccountId}", Name]]
+  S3BucketArn:
+    Value: !GetAtt S3Bucket.Arn
+    Description: "S3 Bucket ARN"
+    Export:
+      Name: !Join [":", [!Sub "${BucketName}-${AWS::AccountId}", ARN]]
